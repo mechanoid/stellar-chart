@@ -28,9 +28,8 @@ class StellarScale {
   static scaleCount = 10
   static scaleDistance = 30
 
-  constructor (two, chart, labels = []) {
+  constructor (two, labels = []) {
     this.two = two
-    this.chart = chart
     this.labels = labels
     this.sectorAngle = 360 / this.labels.length
   }
@@ -70,9 +69,8 @@ class StellarScale {
 }
 
 class StellarGraph {
-  constructor (two, chart, scale) {
+  constructor (two, scale) {
     this.two = two
-    this.chart = chart
     this.scale = scale
     this.flareLines = []
     this.flares = []
@@ -111,8 +109,8 @@ class StellarGraph {
       const center = flare.center().position
       const v = flare.vertices[1]
       v.destination = new Two.Vector(
-        edgeLengthX(this.sectorAngle * index, d * this.scale.scaleFactor, this.chart.centerX) - center.x,
-        edgeLengthY(this.sectorAngle * index, d * this.scale.scaleFactor, this.chart.centerY) - center.y
+        edgeLengthX(this.sectorAngle * index, d * this.scale.scaleFactor) - center.x,
+        edgeLengthY(this.sectorAngle * index, d * this.scale.scaleFactor) - center.y
       )
       v.drag = 0.125
     })
@@ -162,39 +160,46 @@ export class StellarChart extends HTMLElement {
     const data = generateData(1, 10)
     this.draw(data)
     this.resize()
+
+    this.resizeListener = () => this.resize()
+    window.addEventListener('resize', this.resizeListener)
+  }
+
+  disconnectedCallback () {
+    window.removeEventListener('resize', this.resizeListener)
   }
 
   draw (data) {
-    this.centerX = this.two.width / 2
-    this.centerY = this.two.height / 2
-    // this.resize()
     this.drawScale(data)
     this.drawGraph(data)
     this.two.update()
   }
 
   drawScale (data) {
-    this.scale = new StellarScale(this.two, this, Object.keys(data.points), { centerX: this.centerX, centerY: this.centerY })
+    this.scale = new StellarScale(this.two, Object.keys(data.points), { centerX: this.centerX, centerY: this.centerY })
     this.scale.draw()
   }
 
   drawGraph (data) {
-    console.log('draw', Object.values(data.points))
-    this.graph = new StellarGraph(this.two, this, this.scale, { centerX: this.centerX, centerY: this.centerY })
+    this.graph = new StellarGraph(this.two, this.scale, { centerX: this.centerX, centerY: this.centerY })
     this.graph.draw(Object.values(data.points))
   }
 
-  updateGraph (data) {
-    console.log('update', Object.values(data.points))
+  update (data) {
     this.graph.update(Object.values(data.points))
   }
 
-  update (data) {
-    console.log('update stellar chart')
-    this.updateGraph(data)
+  get centerX () {
+    return this.two.width / 2
+  }
+
+  get centerY () {
+    return this.two.height / 2
   }
 
   resize () {
+    this.two.fit('fittet')
+
     this.two.scene.position.set(this.centerX, this.centerY)
   }
 }
