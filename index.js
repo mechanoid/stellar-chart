@@ -2,46 +2,52 @@
 
 const PI_DIRECTION_FACTOR = 1.5 * Math.PI
 const toRadians = (degrees) => degrees * (Math.PI / 180)
-const edgeLength = (angleFactor, radius, centerCorrection) => (angleFactor * radius) + centerCorrection
+const edgeLength = (angleFactor, radius) => (angleFactor * radius)
+
+const edgeLengthX = (angle, radius) => {
+  return edgeLength(Math.cos(toRadians(angle) + PI_DIRECTION_FACTOR), radius)
+}
+
+const edgeLengthY = (angle, radius) => {
+  return edgeLength(Math.sin(toRadians(angle) + PI_DIRECTION_FACTOR), radius)
+}
 
 const randomVal = (digits, min = 0, max = 9) => ((Math.random() * (9 - min) + min)).toFixed(digits)
 const pointCount = Array(parseInt(randomVal(0, 3, 10)))
 
-const data = {
-  min: 0,
-  max: 9,
-  step: 1,
+export const generateData = (min, max) => ({
+  min,
+  max,
   points: pointCount.fill().reduce((res, _curr, index) => {
-    res[`label ${index}`] = parseFloat(randomVal())
+    res[`label ${index}`] = parseFloat(randomVal(1, min, max))
     return res
   }, {})
-}
+})
 
 class StellarScale {
   static scaleCount = 10
   static scaleDistance = 30
 
-  constructor (two, labels = [], { centerX, centerY }) {
+  constructor (two, chart, labels = []) {
     this.two = two
+    this.chart = chart
     this.labels = labels
-    this.centerX = centerX
-    this.centerY = centerY
-    this.center = [this.centerX, this.centerY]
     this.sectorAngle = 360 / this.labels.length
   }
 
   draw () {
     const axes = this.labels.map((_label, index) => this.two.makeLine(
-      ...this.center,
-      this.edgeLengthX(this.sectorAngle * index, StellarScale.scaleDistance * StellarScale.scaleCount),
-      this.edgeLengthY(this.sectorAngle * index, StellarScale.scaleDistance * StellarScale.scaleCount)
+      0,
+      0,
+      edgeLengthX(this.sectorAngle * index, StellarScale.scaleDistance * StellarScale.scaleCount),
+      edgeLengthY(this.sectorAngle * index, StellarScale.scaleDistance * StellarScale.scaleCount)
     ))
 
     const edges = Array(StellarScale.scaleCount).fill().flatMap((_, ringNumber) => this.labels.map((_label, index) => this.two.makeLine(
-      this.edgeLengthX(this.sectorAngle * index, StellarScale.scaleDistance * (ringNumber + 1)),
-      this.edgeLengthY(this.sectorAngle * index, StellarScale.scaleDistance * (ringNumber + 1)),
-      this.edgeLengthX(this.sectorAngle * (index + 1), StellarScale.scaleDistance * (ringNumber + 1)),
-      this.edgeLengthY(this.sectorAngle * (index + 1), StellarScale.scaleDistance * (ringNumber + 1))
+      edgeLengthX(this.sectorAngle * index, StellarScale.scaleDistance * (ringNumber + 1)),
+      edgeLengthY(this.sectorAngle * index, StellarScale.scaleDistance * (ringNumber + 1)),
+      edgeLengthX(this.sectorAngle * (index + 1), StellarScale.scaleDistance * (ringNumber + 1)),
+      edgeLengthY(this.sectorAngle * (index + 1), StellarScale.scaleDistance * (ringNumber + 1))
     )))
 
     const axesGroup = this.two.makeGroup(...axes)
@@ -58,81 +64,138 @@ class StellarScale {
     })
   }
 
-  edgeLengthX (angle, radius) {
-    return edgeLength(Math.cos(toRadians(angle) + PI_DIRECTION_FACTOR), radius, this.centerX)
-  }
-
-  edgeLengthY (angle, radius) {
-    return edgeLength(Math.sin(toRadians(angle) + PI_DIRECTION_FACTOR), radius, this.centerY)
-  }
-
   get scaleFactor () {
-    // return (StellarScale.scaleCount * StellarScale.scaleDistance) / 100
     return StellarScale.scaleDistance
   }
 }
 
 class StellarGraph {
-  constructor (two, scale, { centerX, centerY }) {
+  constructor (two, chart, scale) {
     this.two = two
+    this.chart = chart
     this.scale = scale
     this.flareLines = []
     this.flares = []
-    this.centerX = centerX
-    this.centerY = centerY
-    this.center = [this.centerX, this.centerY]
+    this.updates = 0
   }
 
   draw (datapoints = []) {
-    console.log(datapoints)
+    this.datapoints = datapoints
     this.sectorAngle = 360 / datapoints.length
 
-    this.flares = datapoints.map((d, index) => this.flare(
-      this.edgeLengthX(this.sectorAngle * index, d * this.scale.scaleFactor),
-      this.edgeLengthY(this.sectorAngle * index, d * this.scale.scaleFactor),
-      d * this.scale.scaleFactor,
-      this.sectorAngle * index
-    ))
-    this.flareGroup = this.two.makeGroup(...this.flares)
-    this.flareGroup.stroke = '#F14E50'
-    this.flareGroup.fill = '#F77B7D'
+    this.flares = datapoints.map((d, index) => this.flare(this.sectorAngle * index, d * this.scale.scaleFactor))
+    this.flareGroup = this.groupFlares(this.flares)
+
+    this.two.bind('update', () => {
+      if (!this.updating) return
+      this.flares.forEach((f, index) => {
+        const v = f.vertices[1]
+        const d = v.destination
+        v.x += (d.x - v.x) * v.drag
+        v.y += (d.y - v.y) * v.drag
+      })
+    }).play()
   }
 
-  edgeLengthX (angle, radius) {
-    return edgeLength(Math.cos(toRadians(angle) + PI_DIRECTION_FACTOR), radius, this.centerX)
+  update (datapoints = []) {
+    this.beforeDatapoints = this.datapoints
+    this.datapoints = datapoints
+
+    this.flares.forEach(f => f.remove())
+    this.flares = this.beforeDatapoints.map((d, index) => this.flare(this.sectorAngle * index, d * this.scale.scaleFactor))
+    this.flareGroup = this.groupFlares(this.flares)
+
+    this.datapoints.forEach((d, index) => {
+      const flare = this.flares[index]
+
+      const center = flare.center().position
+      const v = flare.vertices[1]
+      v.destination = new Two.Vector(
+        edgeLengthX(this.sectorAngle * index, d * this.scale.scaleFactor, this.chart.centerX) - center.x,
+        edgeLengthY(this.sectorAngle * index, d * this.scale.scaleFactor, this.chart.centerY) - center.y
+      )
+      v.drag = 0.125
+    })
+
+    this.updating = true
   }
 
-  edgeLengthY (angle, radius) {
-    return edgeLength(Math.sin(toRadians(angle) + PI_DIRECTION_FACTOR), radius, this.centerY)
+  groupFlares (flares) {
+    const flareGroup = this.two.makeGroup(...flares)
+    flareGroup.stroke = '#F14E50'
+    flareGroup.fill = '#F77B7D'
+    return flareGroup
   }
 
-  flare (x, y, radius, angle) {
-    const widthFactor = 2
-    return this.two.makeArcSegment(x, y, radius, 0, toRadians(angle - widthFactor) - PI_DIRECTION_FACTOR, toRadians(angle + widthFactor) - PI_DIRECTION_FACTOR)
+  flare (angle, length) {
+    const widthFactor = 5
+    const x1 = edgeLengthX(angle - 90, widthFactor)
+    const y1 = edgeLengthY(angle - 90, widthFactor)
+    const x2 = edgeLengthX(angle, length)
+    const y2 = edgeLengthY(angle, length)
+    const x3 = edgeLengthX(angle + 90, widthFactor)
+    const y3 = edgeLengthY(angle + 90, widthFactor)
+
+    const flare = this.two.makePath([
+      new Two.Anchor(x1, y1), // base-edge 1
+      new Two.Anchor(x2, y2), // needle tip
+      new Two.Anchor(x3, y3) // base-edge 2
+    ])
+
+    flare.closed = true
+    flare.curved = false
+    flare.automatic = true
+
+    flare.flareLength = length
+    return flare
   }
 }
 
-class StellarChart extends HTMLElement {
+export class StellarChart extends HTMLElement {
   constructor () {
     super()
-    this.two = new Two({ fitted: true })
+    this.two = new Two({ fitted: true, autostart: true })
   }
 
   connectedCallback () {
     this.two.appendTo(this)
-    this.draw()
+    const data = generateData(1, 10)
+    this.draw(data)
+    this.resize()
   }
 
-  draw () {
+  draw (data) {
     this.centerX = this.two.width / 2
     this.centerY = this.two.height / 2
-
-    this.scale = new StellarScale(this.two, Object.keys(data.points), { centerX: this.centerX, centerY: this.centerY })
-    this.scale.draw()
-    this.graph = new StellarGraph(this.two, this.scale, { centerX: this.centerX, centerY: this.centerY })
-    this.graph.draw(Object.values(data.points))
-
+    // this.resize()
+    this.drawScale(data)
+    this.drawGraph(data)
     this.two.update()
+  }
+
+  drawScale (data) {
+    this.scale = new StellarScale(this.two, this, Object.keys(data.points), { centerX: this.centerX, centerY: this.centerY })
+    this.scale.draw()
+  }
+
+  drawGraph (data) {
+    console.log('draw', Object.values(data.points))
+    this.graph = new StellarGraph(this.two, this, this.scale, { centerX: this.centerX, centerY: this.centerY })
+    this.graph.draw(Object.values(data.points))
+  }
+
+  updateGraph (data) {
+    console.log('update', Object.values(data.points))
+    this.graph.update(Object.values(data.points))
+  }
+
+  update (data) {
+    console.log('update stellar chart')
+    this.updateGraph(data)
+  }
+
+  resize () {
+    this.two.scene.position.set(this.centerX, this.centerY)
   }
 }
 

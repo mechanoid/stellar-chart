@@ -2,17 +2,13 @@ stellar-chart {
   display: block;
   margin-left: auto;
   margin-right: auto;
-  width: 75%;
-  width: 75vw;
-  height: 50%;
-  height: 60vh;
-  /* TODO: define useful min-width */
   min-width: 600px;
-  min-height: 400px;
+  min-height: 600px;
   border: 1px solid #000;
   overflow: hidden;
 }
 
 stellar-chart svg {
+  width: 100%;
   border: 1px solid red;
 }
