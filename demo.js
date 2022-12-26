@@ -2,14 +2,13 @@
 
 const UPDATE_DURATION = 1000
 
-const randomVal = (digits, min = 0, max = 9) => ((Math.random() * (9 - min) + min)).toFixed(digits)
+const randomVal = (digits, min = 0, max = 9) => ((Math.random() * (max - min) + min)).toFixed(digits)
 const pointCount = Array(parseInt(randomVal(0, 3, 10)))
 
-const generateData = (min, max) => ({
-  min,
+const generateData = max => ({
   max,
   points: pointCount.fill().reduce((res, _curr, index) => {
-    res[`label ${index}`] = parseFloat(randomVal(1, min, max))
+    res[`label ${index}`] = parseFloat(randomVal(1, 0, max))
     return res
   }, {})
 })
@@ -17,8 +16,10 @@ const generateData = (min, max) => ({
 class DemoChartController extends HTMLElement {
   connectedCallback () {
     this.stellarChart = this.querySelector('stellar-chart')
+    const max = Math.ceil(Math.random() * 1000)
+
     function update () {
-      const data = generateData(1, 10)
+      const data = generateData(max)
 
       this.stellarChart.update(data)
 

@@ -17,9 +17,10 @@ class StellarScale {
   static scaleCount = 10
   static scaleDistance = 30
 
-  constructor (two, labels = []) {
+  constructor (two, labels = [], { max = 9 }) {
     this.two = two
     this.labels = labels
+    this.max = max
     this.sectorAngle = 360 / this.labels.length
   }
 
@@ -53,7 +54,9 @@ class StellarScale {
   }
 
   get scaleFactor () {
-    return StellarScale.scaleDistance
+    const scaleMaxLength = StellarScale.scaleDistance * 10
+    const scaleFactor = (scaleMaxLength / this.max)
+    return scaleFactor
   }
 
   remove () {
@@ -65,9 +68,10 @@ class StellarScale {
 }
 
 class StellarGraph {
-  constructor (two, scale) {
+  constructor (two, scale, { max = 9 }) {
     this.two = two
     this.scale = scale
+    this.max = max
     this.flareLines = []
     this.flares = []
     this.updates = 0
@@ -200,7 +204,7 @@ export class StellarChart extends HTMLElement {
     if (!data.points) { return }
 
     const labels = data?.points ? Object.keys(data.points) : []
-    const scale = new StellarScale(this.two, labels, { centerX: this.centerX, centerY: this.centerY })
+    const scale = new StellarScale(this.two, labels, { max: data.max })
     scale.draw()
     return scale
   }
@@ -209,7 +213,7 @@ export class StellarChart extends HTMLElement {
     if (!data.points) { return }
 
     const datapoints = data?.points ? Object.values(data.points) : []
-    const graph = new StellarGraph(this.two, this.scale, { centerX: this.centerX, centerY: this.centerY })
+    const graph = new StellarGraph(this.two, this.scale, { max: data.max })
     graph.draw(datapoints)
     return graph
   }
