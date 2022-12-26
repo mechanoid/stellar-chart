@@ -1,6 +1,7 @@
 /* global Two, HTMLElement, customElements */
 
 const PI_DIRECTION_FACTOR = 1.5 * Math.PI
+
 const toRadians = (degrees) => degrees * (Math.PI / 180)
 const edgeLength = (angleFactor, radius) => (angleFactor * radius)
 
@@ -11,18 +12,6 @@ const edgeLengthX = (angle, radius) => {
 const edgeLengthY = (angle, radius) => {
   return edgeLength(Math.sin(toRadians(angle) + PI_DIRECTION_FACTOR), radius)
 }
-
-const randomVal = (digits, min = 0, max = 9) => ((Math.random() * (9 - min) + min)).toFixed(digits)
-const pointCount = Array(parseInt(randomVal(0, 3, 10)))
-
-export const generateData = (min, max) => ({
-  min,
-  max,
-  points: pointCount.fill().reduce((res, _curr, index) => {
-    res[`label ${index}`] = parseFloat(randomVal(1, min, max))
-    return res
-  }, {})
-})
 
 class StellarScale {
   static scaleCount = 10
@@ -78,6 +67,8 @@ class StellarGraph {
   }
 
   draw (datapoints = []) {
+    if (datapoints?.length <= 0) { return }
+
     this.datapoints = datapoints
     this.sectorAngle = 360 / datapoints.length
 
@@ -86,6 +77,7 @@ class StellarGraph {
 
     this.two.bind('update', () => {
       if (!this.updating) return
+
       this.flares.forEach((f, index) => {
         const v = f.vertices[1]
         const d = v.destination
@@ -96,18 +88,21 @@ class StellarGraph {
   }
 
   update (datapoints = []) {
+    if (!this.datapoints) {
+      return this.draw(datapoints)
+    }
+
     this.beforeDatapoints = this.datapoints
     this.datapoints = datapoints
-
     this.flares.forEach(f => f.remove())
     this.flares = this.beforeDatapoints.map((d, index) => this.flare(this.sectorAngle * index, d * this.scale.scaleFactor))
     this.flareGroup = this.groupFlares(this.flares)
 
     this.datapoints.forEach((d, index) => {
       const flare = this.flares[index]
-
       const center = flare.center().position
       const v = flare.vertices[1]
+
       v.destination = new Two.Vector(
         edgeLengthX(this.sectorAngle * index, d * this.scale.scaleFactor) - center.x,
         edgeLengthY(this.sectorAngle * index, d * this.scale.scaleFactor) - center.y
@@ -153,11 +148,13 @@ export class StellarChart extends HTMLElement {
   constructor () {
     super()
     this.two = new Two({ fitted: true, autostart: true })
+    this.scale = null
+    this.graph = null
   }
 
   connectedCallback () {
     this.two.appendTo(this)
-    const data = generateData(1, 10)
+    const data = {} // TODO: parse and read initial data from an attribute
     this.draw(data)
     this.resize()
 
@@ -170,22 +167,39 @@ export class StellarChart extends HTMLElement {
   }
 
   draw (data) {
-    this.drawScale(data)
-    this.drawGraph(data)
+    if (!this.scale) {
+      this.scale = this.drawScale(data)
+    }
+    if (!this.graph) {
+      this.graph = this.drawGraph(data)
+    }
+
     this.two.update()
   }
 
   drawScale (data) {
-    this.scale = new StellarScale(this.two, Object.keys(data.points), { centerX: this.centerX, centerY: this.centerY })
-    this.scale.draw()
+    if (!data.points) { return }
+
+    const labels = data?.points ? Object.keys(data.points) : []
+    const scale = new StellarScale(this.two, labels, { centerX: this.centerX, centerY: this.centerY })
+    scale.draw()
+    return scale
   }
 
   drawGraph (data) {
-    this.graph = new StellarGraph(this.two, this.scale, { centerX: this.centerX, centerY: this.centerY })
-    this.graph.draw(Object.values(data.points))
+    if (!data.points) { return }
+
+    const datapoints = data?.points ? Object.values(data.points) : []
+    const graph = new StellarGraph(this.two, this.scale, { centerX: this.centerX, centerY: this.centerY })
+    graph.draw(datapoints)
+    return graph
   }
 
   update (data) {
+    if (!this.scale || !this.graph) {
+      return this.draw(data)
+    }
+
     this.graph.update(Object.values(data.points))
   }
 

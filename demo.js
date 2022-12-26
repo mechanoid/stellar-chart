@@ -1,8 +1,18 @@
 /* global HTMLElement, customElements */
 
-import { generateData } from './index.js'
+const UPDATE_DURATION = 1000
 
-const UPDATE_DURATION = 100
+const randomVal = (digits, min = 0, max = 9) => ((Math.random() * (9 - min) + min)).toFixed(digits)
+const pointCount = Array(parseInt(randomVal(0, 3, 10)))
+
+const generateData = (min, max) => ({
+  min,
+  max,
+  points: pointCount.fill().reduce((res, _curr, index) => {
+    res[`label ${index}`] = parseFloat(randomVal(1, min, max))
+    return res
+  }, {})
+})
 
 class DemoChartController extends HTMLElement {
   connectedCallback () {
