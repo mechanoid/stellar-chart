@@ -24,36 +24,43 @@ class StellarScale {
   }
 
   draw () {
-    const axes = this.labels.map((_label, index) => this.two.makeLine(
+    this.axes = this.labels.map((_label, index) => this.two.makeLine(
       0,
       0,
       edgeLengthX(this.sectorAngle * index, StellarScale.scaleDistance * StellarScale.scaleCount),
       edgeLengthY(this.sectorAngle * index, StellarScale.scaleDistance * StellarScale.scaleCount)
     ))
 
-    const edges = Array(StellarScale.scaleCount).fill().flatMap((_, ringNumber) => this.labels.map((_label, index) => this.two.makeLine(
+    this.edges = Array(StellarScale.scaleCount).fill().flatMap((_, ringNumber) => this.labels.map((_label, index) => this.two.makeLine(
       edgeLengthX(this.sectorAngle * index, StellarScale.scaleDistance * (ringNumber + 1)),
       edgeLengthY(this.sectorAngle * index, StellarScale.scaleDistance * (ringNumber + 1)),
       edgeLengthX(this.sectorAngle * (index + 1), StellarScale.scaleDistance * (ringNumber + 1)),
       edgeLengthY(this.sectorAngle * (index + 1), StellarScale.scaleDistance * (ringNumber + 1))
     )))
 
-    const axesGroup = this.two.makeGroup(...axes)
+    const axesGroup = this.two.makeGroup(...this.axes)
     axesGroup.linewidth = 2
     axesGroup.stroke = '#ECECEC'
-    axes.forEach(d => {
+    this.axes.forEach(d => {
       d.dashes = [4, 5]
     })
 
-    const edgesGroup = this.two.makeGroup(...edges)
+    const edgesGroup = this.two.makeGroup(...this.edges)
     edgesGroup.stroke = '#b1b1b1'
-    edges.forEach(d => {
+    this.edges.forEach(d => {
       d.dashes = [4, 5]
     })
   }
 
   get scaleFactor () {
     return StellarScale.scaleDistance
+  }
+
+  remove () {
+    this.axes.forEach(a => a.remove())
+    this.edges.forEach(e => e.remove())
+    this.axesGroup?.remove()
+    this.edgesGroup?.remove()
   }
 }
 
@@ -75,7 +82,7 @@ class StellarGraph {
     this.flares = datapoints.map((d, index) => this.flare(this.sectorAngle * index, d * this.scale.scaleFactor))
     this.flareGroup = this.groupFlares(this.flares)
 
-    this.two.bind('update', () => {
+    this.updateHandler = () => {
       if (!this.updating) return
 
       this.flares.forEach((f, index) => {
@@ -84,7 +91,8 @@ class StellarGraph {
         v.x += (d.x - v.x) * v.drag
         v.y += (d.y - v.y) * v.drag
       })
-    }).play()
+    }
+    this.two.bind('update', this.updateHandler).play()
   }
 
   update (datapoints = []) {
@@ -142,23 +150,36 @@ class StellarGraph {
     flare.flareLength = length
     return flare
   }
+
+  remove () {
+    this.two.unbind('update', this.updateHandler)
+    this.flares.forEach(f => f.remove())
+    this.flareGroup?.remove()
+  }
 }
 
 export class StellarChart extends HTMLElement {
   constructor () {
     super()
     this.two = new Two({ fitted: true, autostart: true })
-    this.scale = null
-    this.graph = null
+    this.scale = undefined
+    this.graph = undefined
+    this.data = undefined
   }
 
   connectedCallback () {
     this.two.appendTo(this)
-    const data = {} // TODO: parse and read initial data from an attribute
-    this.draw(data)
-    this.resize()
 
+    try {
+      this.data = this.hasAttribute('data') ? JSON.parse(this.getAttribute('data')) : {}
+      this.draw(this.data)
+    } catch (e) {
+      console.log('failed to load init data from data-Attribute:', e.message)
+    }
+
+    this.resize()
     this.resizeListener = () => this.resize()
+
     window.addEventListener('resize', this.resizeListener)
   }
 
@@ -173,8 +194,6 @@ export class StellarChart extends HTMLElement {
     if (!this.graph) {
       this.graph = this.drawGraph(data)
     }
-
-    this.two.update()
   }
 
   drawScale (data) {
@@ -196,8 +215,19 @@ export class StellarChart extends HTMLElement {
   }
 
   update (data) {
-    if (!this.scale || !this.graph) {
-      return this.draw(data)
+    if (!data?.points) {
+      throw new Error('updating the graph with invalid data:', 'points property is missing!')
+    }
+
+    if (!this.data?.points || Object.keys(data.points).length !== Object.keys(this.data.points).length) {
+      this.data = data
+      this.scale?.remove()
+      this.graph?.remove()
+      this.scale = undefined
+      this.graph = undefined
+
+      this.draw(data)
+      return
     }
 
     this.graph.update(Object.values(data.points))

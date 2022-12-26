@@ -19,6 +19,7 @@ class DemoChartController extends HTMLElement {
     this.stellarChart = this.querySelector('stellar-chart')
     function update () {
       const data = generateData(1, 10)
+
       this.stellarChart.update(data)
 
       setTimeout(update.bind(this), UPDATE_DURATION)
