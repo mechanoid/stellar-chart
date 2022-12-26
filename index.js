@@ -39,17 +39,43 @@ class StellarScale {
       edgeLengthY(this.sectorAngle * (index + 1), StellarScale.scaleDistance * (ringNumber + 1))
     )))
 
-    const axesGroup = this.two.makeGroup(...this.axes)
-    axesGroup.linewidth = 2
-    axesGroup.stroke = '#ECECEC'
+    this.labels = this.labels.map((label, index) => {
+      const text = this.two.makeText(
+        label,
+        0,
+        0
+      ) // compute text first to get the length, then adjust x, y for the right distance from center
+      const { width } = text.getBoundingClientRect()
+      const distanceFromCenter = StellarScale.scaleDistance * 3
+
+      text.translation.x = edgeLengthX(this.sectorAngle * index, distanceFromCenter + (width / 2)) - edgeLengthX((this.sectorAngle * index) + 90, 15)
+      text.translation.y = edgeLengthY(this.sectorAngle * index, distanceFromCenter + (width / 2)) - edgeLengthY((this.sectorAngle * index) + 90, 15)
+
+      const rotationAngle = this.sectorAngle * index
+
+      text.rotation = toRadians(rotationAngle) - Math.PI / 2 * (rotationAngle > 180 ? -1 : 1)
+      return text
+    })
+
+    this.axesGroup = this.two.makeGroup(...this.axes)
+    this.axesGroup.linewidth = 2
+    this.axesGroup.stroke = '#ECECEC'
+
     this.axes.forEach(d => {
       d.dashes = [4, 5]
     })
 
-    const edgesGroup = this.two.makeGroup(...this.edges)
-    edgesGroup.stroke = '#b1b1b1'
+    this.edgesGroup = this.two.makeGroup(...this.edges)
+    this.edgesGroup.stroke = '#b1b1b1'
     this.edges.forEach(d => {
       d.dashes = [4, 5]
+    })
+
+    this.labelsGroup = this.two.makeGroup(...this.labels)
+    // this.labelsGroup.stroke = '#b1b1b1'
+
+    this.labels.forEach(l => {
+      l.size = 12
     })
   }
 
@@ -60,10 +86,16 @@ class StellarScale {
   }
 
   remove () {
-    this.axes.forEach(a => a.remove())
-    this.edges.forEach(e => e.remove())
+    this.axes.forEach(x => x.remove())
+    this.edges.forEach(x => x.remove())
+    this.labels.forEach(x => x.remove())
     this.axesGroup?.remove()
     this.edgesGroup?.remove()
+    this.labelsGroup?.remove()
+  }
+
+  update ({ max }) {
+    this.max = max
   }
 }
 
@@ -176,11 +208,12 @@ export class StellarChart extends HTMLElement {
 
     try {
       this.data = this.hasAttribute('data') ? JSON.parse(this.getAttribute('data')) : {}
-      this.draw(this.data)
     } catch (e) {
+      this.data = {}
       console.log('failed to load init data from data-Attribute:', e.message)
     }
 
+    this.draw(this.data)
     this.resize()
     this.resizeListener = () => this.resize()
 
@@ -231,9 +264,9 @@ export class StellarChart extends HTMLElement {
       this.graph = undefined
 
       this.draw(data)
-      return
     }
 
+    this.scale.update({ max: data.max })
     this.graph.update(Object.values(data.points))
   }
 

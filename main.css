@@ -2,8 +2,8 @@ stellar-chart {
   display: block;
   margin-left: auto;
   margin-right: auto;
-  min-width: 700px;
-  min-height: 700px;
+  min-width: 1000px;
+  min-height: 1000px;
   max-height: 800px;
   border: 1px solid #000;
   overflow: hidden;
