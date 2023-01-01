@@ -2,12 +2,12 @@
 
 const UPDATE_DURATION = 1000
 
-const randomVal = (digits, min = 0, max = 9) => ((Math.random() * (max - min) + min)).toFixed(digits)
-const pointCount = Array(parseInt(randomVal(0, 3, 10)))
+export const randomVal = (digits, min = 0, max = 9) => ((Math.random() * (max - min) + min)).toFixed(digits)
+const points = Array(parseInt(randomVal(0, 3, 10)))
 
-const generateData = max => ({
+export const generateData = max => ({
   max,
-  points: pointCount.fill().reduce((res, _curr, index) => {
+  points: points.fill().reduce((res, _curr, index) => {
     const randomLabelFilling = [...Array(Math.ceil(Math.random() * 3))].map((value) => (Math.random() * 1000000).toString(36).replace('.', '')).join('')
     res[`label ${randomLabelFilling} ${index}`] = parseFloat(randomVal(1, 0, max))
     return res
