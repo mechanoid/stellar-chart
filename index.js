@@ -1,198 +1,21 @@
 /* global Two, HTMLElement, customElements */
 
-const PI_DIRECTION_FACTOR = 1.5 * Math.PI
+import { StellarScale } from './stellar-scale.js'
+import { StellarGraph } from './stellar-graph.js'
 
-const toRadians = (degrees) => degrees * (Math.PI / 180)
-const edgeLength = (angleFactor, radius) => (angleFactor * radius)
-
-const edgeLengthX = (angle, radius) => {
-  return edgeLength(Math.cos(toRadians(angle) + PI_DIRECTION_FACTOR), radius)
-}
-
-const edgeLengthY = (angle, radius) => {
-  return edgeLength(Math.sin(toRadians(angle) + PI_DIRECTION_FACTOR), radius)
-}
-
-class StellarScale {
-  static scaleCount = 10
-  static scaleDistance = 30
-
-  constructor (two, labels = [], { max = 9 }) {
-    this.two = two
-    this.labels = labels
-    this.max = max
-    this.sectorAngle = 360 / this.labels.length
-  }
-
-  draw () {
-    this.axes = this.labels.map((_label, index) => this.two.makeLine(
-      0,
-      0,
-      edgeLengthX(this.sectorAngle * index, StellarScale.scaleDistance * StellarScale.scaleCount),
-      edgeLengthY(this.sectorAngle * index, StellarScale.scaleDistance * StellarScale.scaleCount)
-    ))
-
-    this.edges = Array(StellarScale.scaleCount).fill().flatMap((_, ringNumber) => this.labels.map((_label, index) => this.two.makeLine(
-      edgeLengthX(this.sectorAngle * index, StellarScale.scaleDistance * (ringNumber + 1)),
-      edgeLengthY(this.sectorAngle * index, StellarScale.scaleDistance * (ringNumber + 1)),
-      edgeLengthX(this.sectorAngle * (index + 1), StellarScale.scaleDistance * (ringNumber + 1)),
-      edgeLengthY(this.sectorAngle * (index + 1), StellarScale.scaleDistance * (ringNumber + 1))
-    )))
-
-    this.labels = this.labels.map((label, index) => {
-      const text = this.two.makeText(
-        label,
-        0,
-        0
-      ) // compute text first to get the length, then adjust x, y for the right distance from center
-      const { width } = text.getBoundingClientRect()
-      const distanceFromCenter = StellarScale.scaleDistance * 3
-
-      text.translation.x = edgeLengthX(this.sectorAngle * index, distanceFromCenter + (width / 2)) - edgeLengthX((this.sectorAngle * index) + 90, 15)
-      text.translation.y = edgeLengthY(this.sectorAngle * index, distanceFromCenter + (width / 2)) - edgeLengthY((this.sectorAngle * index) + 90, 15)
-
-      const rotationAngle = this.sectorAngle * index
-
-      text.rotation = toRadians(rotationAngle) - Math.PI / 2 * (rotationAngle > 180 ? -1 : 1)
-      return text
-    })
-
-    this.axesGroup = this.two.makeGroup(...this.axes)
-    this.axesGroup.linewidth = 2
-    this.axesGroup.stroke = '#ECECEC'
-
-    this.axes.forEach(d => {
-      d.dashes = [4, 5]
-    })
-
-    this.edgesGroup = this.two.makeGroup(...this.edges)
-    this.edgesGroup.stroke = '#b1b1b1'
-    this.edges.forEach(d => {
-      d.dashes = [4, 5]
-    })
-
-    this.labelsGroup = this.two.makeGroup(...this.labels)
-    // this.labelsGroup.stroke = '#b1b1b1'
-
-    this.labels.forEach(l => {
-      l.size = 12
-    })
-  }
-
-  get scaleFactor () {
-    const scaleMaxLength = StellarScale.scaleDistance * 10
-    const scaleFactor = (scaleMaxLength / this.max)
-    return scaleFactor
-  }
-
-  remove () {
-    this.axes.forEach(x => x.remove())
-    this.edges.forEach(x => x.remove())
-    this.labels.forEach(x => x.remove())
-    this.axesGroup?.remove()
-    this.edgesGroup?.remove()
-    this.labelsGroup?.remove()
-  }
-
-  update ({ max }) {
-    this.max = max
-  }
-}
-
-class StellarGraph {
-  constructor (two, scale, { max = 9 }) {
-    this.two = two
-    this.scale = scale
-    this.max = max
-    this.flareLines = []
-    this.flares = []
-    this.updates = 0
-  }
-
-  draw (datapoints = []) {
-    if (datapoints?.length <= 0) { return }
-
-    this.datapoints = datapoints
-    this.sectorAngle = 360 / datapoints.length
-
-    this.flares = datapoints.map((d, index) => this.flare(this.sectorAngle * index, d * this.scale.scaleFactor))
-    this.flareGroup = this.groupFlares(this.flares)
-
-    this.updateHandler = () => {
-      if (!this.updating) return
-
-      this.flares.forEach((f, index) => {
-        const v = f.vertices[1]
-        const d = v.destination
-        v.x += (d.x - v.x) * v.drag
-        v.y += (d.y - v.y) * v.drag
-      })
-    }
-    this.two.bind('update', this.updateHandler).play()
-  }
-
-  update (datapoints = []) {
-    if (!this.datapoints) {
-      return this.draw(datapoints)
-    }
-
-    this.beforeDatapoints = this.datapoints
-    this.datapoints = datapoints
-    this.flares.forEach(f => f.remove())
-    this.flares = this.beforeDatapoints.map((d, index) => this.flare(this.sectorAngle * index, d * this.scale.scaleFactor))
-    this.flareGroup = this.groupFlares(this.flares)
-
-    this.datapoints.forEach((d, index) => {
-      const flare = this.flares[index]
-      const center = flare.center().position
-      const v = flare.vertices[1]
-
-      v.destination = new Two.Vector(
-        edgeLengthX(this.sectorAngle * index, d * this.scale.scaleFactor) - center.x,
-        edgeLengthY(this.sectorAngle * index, d * this.scale.scaleFactor) - center.y
-      )
-      v.drag = 0.125
-    })
-
-    this.updating = true
-  }
-
-  groupFlares (flares) {
-    const flareGroup = this.two.makeGroup(...flares)
-    flareGroup.stroke = '#F14E50'
-    flareGroup.fill = '#F77B7D'
-    return flareGroup
-  }
-
-  flare (angle, length) {
-    const widthFactor = 5
-    const x1 = edgeLengthX(angle - 90, widthFactor)
-    const y1 = edgeLengthY(angle - 90, widthFactor)
-    const x2 = edgeLengthX(angle, length)
-    const y2 = edgeLengthY(angle, length)
-    const x3 = edgeLengthX(angle + 90, widthFactor)
-    const y3 = edgeLengthY(angle + 90, widthFactor)
-
-    const flare = this.two.makePath([
-      new Two.Anchor(x1, y1), // base-edge 1
-      new Two.Anchor(x2, y2), // needle tip
-      new Two.Anchor(x3, y3) // base-edge 2
-    ])
-
-    flare.closed = true
-    flare.curved = false
-    flare.automatic = true
-
-    flare.flareLength = length
-    return flare
-  }
-
-  remove () {
-    this.two.unbind('update', this.updateHandler)
-    this.flares.forEach(f => f.remove())
-    this.flareGroup?.remove()
-  }
-}
+// Data Example:
+// {
+//   // determines the maximal range for the input values (e.g. 0 to 100 in this example)
+//   max: 100,
+//   // points are the actual values displayed on the graph, described by a label each.
+//   points: {
+//     'label 0': 3,
+//     'label 1': 87.8,
+//     'label 2': 23.8,
+//     'label 3': 22.7,
+//     'label 4': 32.6
+//   }
+// }
 
 export class StellarChart extends HTMLElement {
   constructor () {

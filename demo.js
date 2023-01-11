@@ -8,8 +8,8 @@ const points = Array(parseInt(randomVal(0, 3, 10)))
 export const generateData = max => ({
   max,
   points: points.fill().reduce((res, _curr, index) => {
-    const randomLabelFilling = [...Array(Math.ceil(Math.random() * 3))].map((value) => (Math.random() * 1000000).toString(36).replace('.', '')).join('')
-    res[`label ${randomLabelFilling} ${index}`] = parseFloat(randomVal(1, 0, max))
+    // const randomLabelFilling = [...Array(Math.ceil(Math.random() * 3))].map((value) => (Math.random() * 1000000).toString(36).replace('.', '')).join('')
+    res[`label ${index}`] = parseFloat(randomVal(1, 0, max))
     return res
   }, {})
 })
