@@ -12,8 +12,8 @@
     "stellar-chart": "bin/stellar-chart.js"
   },
   "devDependencies": {
-    "eslint": "^8.29.0",
-    "eslint-config-standard": "^17.0.0-1",
+    "eslint": "^8.31.0",
+    "eslint-config-standard": "^17.0.0",
     "eslint-plugin-node": "^11.1.0",
     "http-server": "^14.1.1"
   },
