@@ -1,6 +1,7 @@
 /* global Two */
 
 import { edgeLengthX, edgeLengthY } from './geometric-helpers.js'
+// import { extractValues } from './index.js'
 
 // The actual graph we want to draw to out scale
 export class StellarGraph {
@@ -13,13 +14,15 @@ export class StellarGraph {
     this.updates = 0
   }
 
-  draw (datapoints = []) {
-    if (datapoints?.length <= 0) { return }
-
+  async draw (datapoints = {}) {
+    if (Object.keys(datapoints).length <= 0) { return }
     this.datapoints = datapoints
     this.sectorAngle = 360 / datapoints.length
 
-    this.flares = datapoints.map((d, index) => this.flare(this.sectorAngle * index, d * this.scale.scaleFactor))
+    this.flares = this.datapoints
+      .map(d => d.value)
+      .map((d, index) => this.flare(this.sectorAngle * index, d * this.scale.scaleFactor))
+
     this.flareGroup = this.groupFlares(this.flares)
 
     this.updateHandler = () => {
@@ -32,31 +35,53 @@ export class StellarGraph {
         v.y += (d.y - v.y) * v.drag
       })
     }
+
     this.two.bind('update', this.updateHandler).play()
+
+    await Promise.all(this.flares.map(async (f, index) => {
+      await rendered(f.renderer)
+      f.toggleListener = () => this.toggleInfo(f)
+      f.datapoint = this.datapoints[index]
+
+      f.renderer.elem.addEventListener('mouseover', f.toggleListener)
+      f.renderer.elem.addEventListener('mouseout', f.toggleListener)
+      f.renderer.elem.addEventListener('click', f.toggleListener)
+    }))
   }
 
-  update (datapoints = []) {
-    if (!this.datapoints) {
-      return this.draw(datapoints)
+  toggleInfo (f) {
+    console.log(f.datapoint)
+  }
+
+  async update (datapoints = {}) {
+    if (Object.keys(this.datapoints).length <= 0) {
+      return await this.draw(datapoints)
     }
 
     this.beforeDatapoints = this.datapoints
     this.datapoints = datapoints
+
     this.flares.forEach(f => f.remove())
-    this.flares = this.beforeDatapoints.map((d, index) => this.flare(this.sectorAngle * index, d * this.scale.scaleFactor))
+
+    this.flares = this.beforeDatapoints
+      .map(d => d.value)
+      .map((d, index) => this.flare(this.sectorAngle * index, d * this.scale.scaleFactor))
+
     this.flareGroup = this.groupFlares(this.flares)
 
-    this.datapoints.forEach((d, index) => {
-      const flare = this.flares[index]
-      const center = flare.center().position
-      const v = flare.vertices[1]
+    this.datapoints
+      .map(d => d.value)
+      .forEach((d, index) => {
+        const flare = this.flares[index]
+        const center = flare.center().position
+        const v = flare.vertices[1]
 
-      v.destination = new Two.Vector(
-        edgeLengthX(this.sectorAngle * index, d * this.scale.scaleFactor) - center.x,
-        edgeLengthY(this.sectorAngle * index, d * this.scale.scaleFactor) - center.y
-      )
-      v.drag = 0.125
-    })
+        v.destination = new Two.Vector(
+          edgeLengthX(this.sectorAngle * index, d * this.scale.scaleFactor) - center.x,
+          edgeLengthY(this.sectorAngle * index, d * this.scale.scaleFactor) - center.y
+        )
+        v.drag = 0.125
+      })
 
     this.updating = true
   }
@@ -93,7 +118,33 @@ export class StellarGraph {
 
   remove () {
     this.two.unbind('update', this.updateHandler)
-    this.flares.forEach(f => f.remove())
+    this.flares.forEach(f => {
+      if (f.toggleListener) {
+        f.renderer.elem.removeEventListener('mouseover', f.toggleListener)
+        f.renderer.elem.removeEventListener('mouseout', f.toggleListener)
+        f.renderer.elem.removeEventListener('click', f.toggleListener)
+      }
+      f.remove()
+    })
     this.flareGroup?.remove()
   }
+}
+
+// the twojs svg renderer renders asynchronously, but offers no async api.
+// `.elem` becomes available once rendered, so we wait for that to happen.
+async function rendered (renderer, interval = 10, timeout = 1000) {
+  let time = 0
+  return new Promise((resolve, reject) => {
+    const check = (renderer) => {
+      if (renderer.elem) {
+        resolve(renderer.elem)
+      }
+
+      time += interval
+      if (time > timeout) { reject(new Error('Element not rendered in time.')) }
+
+      setTimeout(() => check(renderer), interval)
+    }
+    setTimeout(() => check(renderer), interval)
+  })
 }

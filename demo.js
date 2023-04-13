@@ -15,14 +15,14 @@ export const generateData = max => ({
 })
 
 class DemoChartController extends HTMLElement {
-  connectedCallback () {
+  async connectedCallback () {
     this.stellarChart = this.querySelector('stellar-chart')
     const max = Math.ceil(Math.random() * 1000)
 
-    function update () {
+    async function update () {
       const data = generateData(max)
 
-      this.stellarChart.update(data)
+      await this.stellarChart.update(data)
 
       setTimeout(update.bind(this), UPDATE_DURATION)
     }

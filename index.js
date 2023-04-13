@@ -40,7 +40,7 @@ export class StellarChart extends HTMLElement {
     this.data = undefined
   }
 
-  connectedCallback () {
+  async connectedCallback () {
     this.two.appendTo(this)
 
     try {
@@ -50,7 +50,7 @@ export class StellarChart extends HTMLElement {
       console.log('failed to load init data from data-Attribute:', e.message)
     }
 
-    this.draw(this.data)
+    await this.draw(this.data)
     this.resize()
     this.resizeListener = () => this.resize()
 
@@ -61,39 +61,44 @@ export class StellarChart extends HTMLElement {
     window.removeEventListener('resize', this.resizeListener)
   }
 
-  draw (data) {
+  async draw (data) {
+    this.datapoints = normaliseDatapointFormat(data.points)
+
     if (!this.scale) {
       this.scale = this.drawScale(data)
     }
     if (!this.graph) {
-      this.graph = this.drawGraph(data)
+      this.graph = await this.drawGraph(data)
     }
   }
 
-  drawScale (data) {
-    if (!data.points) { return }
+  drawScale ({ max }) {
+    if (!this.datapoints) { return }
 
-    const labels = extractLabels(data.points)
-    const scale = new StellarScale(this.two, labels, { max: data.max })
+    const labels = this.datapoints.map(point => point.label)
+    const scale = new StellarScale(this.two, labels, { max })
     scale.draw()
     return scale
   }
 
-  drawGraph (data) {
-    if (!data.points) { return }
+  async drawGraph ({ max }) {
+    if (!this.datapoints) { return }
 
-    const datapoints = extractValues(data.points)
-    const graph = new StellarGraph(this.two, this.scale, { max: data.max })
-    graph.draw(datapoints)
+    const graph = new StellarGraph(this.two, this.scale, { max })
+    await graph.draw(this.datapoints)
+
     return graph
   }
 
-  update (data) {
+  async update (data) {
     if (!data?.points) {
       throw new Error('updating the graph with invalid data:', 'points property is missing!')
     }
-    const newPoints = extractValues(data.points)
-    const currentPoints = extractValues(this.data?.points)
+
+    const newPoints = normaliseDatapointFormat(data.points)
+    const currentPoints = this.datapoints
+
+    // redraw the graph if the number of points has changed
     if (!currentPoints || newPoints.length !== currentPoints.length) {
       this.data = data
       this.scale?.remove()
@@ -101,11 +106,11 @@ export class StellarChart extends HTMLElement {
       this.scale = undefined
       this.graph = undefined
 
-      this.draw(data)
+      await this.draw(data)
     }
 
     this.scale.update({ max: data.max })
-    this.graph.update(newPoints)
+    await this.graph.update(newPoints)
   }
 
   get centerX () {
@@ -125,10 +130,16 @@ export class StellarChart extends HTMLElement {
 
 customElements.define('stellar-chart', StellarChart)
 
-function extractValues (points = {}) {
-  return Object.values(points).map(point => point.value !== undefined ? point.value : point)
-}
+function normaliseDatapointFormat (datapoints) {
+  const result = []
 
-function extractLabels (points = {}) {
-  return Object.entries(points).map(([key, point]) => point.text !== undefined ? point.text : key)
+  for (const [label, value] of Object.entries(datapoints)) {
+    if (typeof value === 'number') {
+      result.push({ label, value })
+    } else if (typeof value === 'object') {
+      result.push({ label, value: value.value })
+    }
+  }
+
+  return result
 }
