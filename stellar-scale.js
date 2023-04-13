@@ -28,9 +28,15 @@ export class StellarScale {
   }
 
   draw () {
-    // Axes are the lines drawn from center to the outer limits of our scale.
-    // The axes are aligned directly to the sectorAngle of the respective label
-    // (label 0 = sectorAngle * 0, label 1 = sectorAngle * 1, ...)
+    this.drawAxes()
+    this.drawEdges()
+    this.drawLabels()
+  }
+
+  // Axes are the lines drawn from center to the outer limits of our scale.
+  // The axes are aligned directly to the sectorAngle of the respective label
+  // (label 0 = sectorAngle * 0, label 1 = sectorAngle * 1, ...)
+  drawAxes () {
     this.axes = this.labels.map((_label, index) => this.two.makeLine(
       0,
       0,
@@ -38,24 +44,26 @@ export class StellarScale {
       edgeLengthY(this.sectorAngle * index, StellarScale.scaleDistance * StellarScale.scaleCount)
     ))
 
-    // The edges are the connections between the axes, and are arranged as "rings" (actually polygons)
-    // around the center of the graph.
-    this.edges = Array(StellarScale.scaleCount).fill().flatMap((_, ringNumber) => this.labels.map((_label, index) => this.two.makeLine(
-      edgeLengthX(this.sectorAngle * index, StellarScale.scaleDistance * (ringNumber + 1)),
-      edgeLengthY(this.sectorAngle * index, StellarScale.scaleDistance * (ringNumber + 1)),
-      edgeLengthX(this.sectorAngle * (index + 1), StellarScale.scaleDistance * (ringNumber + 1)),
-      edgeLengthY(this.sectorAngle * (index + 1), StellarScale.scaleDistance * (ringNumber + 1))
-    )))
+    this.axesGroup = this.two.makeGroup(...this.axes)
+    this.axesGroup.linewidth = 2
+    this.axesGroup.stroke = '#ECECEC'
 
-    // the labels are the actual text nodes arranged and displayed beside the axes.
-    this.labels = this.labels.map((label, index) => {
+    this.axes.forEach(d => {
+      d.dashes = [4, 5]
+    })
+  }
+
+  // the labels are the actual text nodes arranged and displayed beside the axes.
+  drawLabels () {
+    this.labels = this.labels.map((rawLabel, index) => {
+      const label = truncate(rawLabel)
       const text = this.two.makeText(
         label,
         0,
         0
       ) // compute text first to get the length, then adjust x, y for the right distance from center
       const { width } = text.getBoundingClientRect()
-      const distanceFromCenter = StellarScale.scaleDistance * 3
+      const distanceFromCenter = StellarScale.scaleDistance * 1
 
       text.translation.x = edgeLengthX(this.sectorAngle * index, distanceFromCenter + (width / 2)) - edgeLengthX((this.sectorAngle * index) + 90, 15)
       text.translation.y = edgeLengthY(this.sectorAngle * index, distanceFromCenter + (width / 2)) - edgeLengthY((this.sectorAngle * index) + 90, 15)
@@ -66,24 +74,27 @@ export class StellarScale {
       return text
     })
 
-    this.axesGroup = this.two.makeGroup(...this.axes)
-    this.axesGroup.linewidth = 2
-    this.axesGroup.stroke = '#ECECEC'
+    this.labelsGroup = this.two.makeGroup(...this.labels)
 
-    this.axes.forEach(d => {
-      d.dashes = [4, 5]
+    this.labels.forEach(l => {
+      l.size = 12
     })
+  }
+
+  // The edges are the connections between the axes, and are arranged as "rings" (actually polygons)
+  // around the center of the graph.
+  drawEdges () {
+    this.edges = Array(StellarScale.scaleCount).fill().flatMap((_, ringNumber) => this.labels.map((_label, index) => this.two.makeLine(
+      edgeLengthX(this.sectorAngle * index, StellarScale.scaleDistance * (ringNumber + 1)),
+      edgeLengthY(this.sectorAngle * index, StellarScale.scaleDistance * (ringNumber + 1)),
+      edgeLengthX(this.sectorAngle * (index + 1), StellarScale.scaleDistance * (ringNumber + 1)),
+      edgeLengthY(this.sectorAngle * (index + 1), StellarScale.scaleDistance * (ringNumber + 1))
+    )))
 
     this.edgesGroup = this.two.makeGroup(...this.edges)
     this.edgesGroup.stroke = '#b1b1b1'
     this.edges.forEach(d => {
       d.dashes = [4, 5]
-    })
-
-    this.labelsGroup = this.two.makeGroup(...this.labels)
-
-    this.labels.forEach(l => {
-      l.size = 12
     })
   }
 
@@ -112,4 +123,11 @@ export class StellarScale {
   update ({ max }) {
     this.max = max
   }
+}
+
+function truncate (string, length = 50) {
+  if (string.length > length) {
+    return string.substring(0, length) + '...'
+  }
+  return string
 }
