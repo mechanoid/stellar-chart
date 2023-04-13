@@ -3,7 +3,7 @@
 import { StellarScale } from './stellar-scale.js'
 import { StellarGraph } from './stellar-graph.js'
 
-// Data Example:
+// Data Example: (Simple Label / Value Object)
 // {
 //   // determines the maximal range for the input values (e.g. 0 to 100 in this example)
 //   max: 100,
@@ -14,6 +14,20 @@ import { StellarGraph } from './stellar-graph.js'
 //     'label 2': 23.8,
 //     'label 3': 22.7,
 //     'label 4': 32.6
+//   }
+// }
+
+// Data Example: (Alternative Data Structure)
+// {
+//   // determines the maximal range for the input values (e.g. 0 to 100 in this example)
+//   max: 100,
+//   // points are the actual values displayed on the graph, described by a label each.
+//   points: {
+//     'id': { value: 3.1, shortText: 'smth. about 20 chars', longText: 'longer text (about max 250)' }
+//     'id': { value: 87.5, shortText: '', longText: '' }
+//     'id': { value: 23.3, shortText: '', longText: '' }
+//     'id': { value: 22.4, shortText: '', longText: '' }
+//     'id': { value: 32.9, shortText: '', longText: '' }
 //   }
 // }
 
@@ -59,7 +73,7 @@ export class StellarChart extends HTMLElement {
   drawScale (data) {
     if (!data.points) { return }
 
-    const labels = data?.points ? Object.keys(data.points) : []
+    const labels = extractLabels(data.points)
     const scale = new StellarScale(this.two, labels, { max: data.max })
     scale.draw()
     return scale
@@ -68,7 +82,7 @@ export class StellarChart extends HTMLElement {
   drawGraph (data) {
     if (!data.points) { return }
 
-    const datapoints = data?.points ? Object.values(data.points) : []
+    const datapoints = extractValues(data.points)
     const graph = new StellarGraph(this.two, this.scale, { max: data.max })
     graph.draw(datapoints)
     return graph
@@ -78,8 +92,9 @@ export class StellarChart extends HTMLElement {
     if (!data?.points) {
       throw new Error('updating the graph with invalid data:', 'points property is missing!')
     }
-
-    if (!this.data?.points || Object.keys(data.points).length !== Object.keys(this.data.points).length) {
+    const newPoints = extractValues(data.points)
+    const currentPoints = extractValues(this.data?.points)
+    if (!currentPoints || newPoints.length !== currentPoints.length) {
       this.data = data
       this.scale?.remove()
       this.graph?.remove()
@@ -90,7 +105,7 @@ export class StellarChart extends HTMLElement {
     }
 
     this.scale.update({ max: data.max })
-    this.graph.update(Object.values(data.points))
+    this.graph.update(newPoints)
   }
 
   get centerX () {
@@ -109,3 +124,11 @@ export class StellarChart extends HTMLElement {
 }
 
 customElements.define('stellar-chart', StellarChart)
+
+function extractValues (points = {}) {
+  return Object.values(points).map(point => point.value !== undefined ? point.value : point)
+}
+
+function extractLabels (points = {}) {
+  return Object.entries(points).map(([key, point]) => point.text !== undefined ? point.text : key)
+}
