@@ -73,7 +73,7 @@ export class StellarScale {
         await element.appendChild(tspan)
       }
 
-      const { width } = element.getBoundingClientRect()
+      const { width, height } = element.getBoundingClientRect()
       let distanceCorrectionX = 0
       if (
         ((this.sectorAngle * index) > 30 && (this.sectorAngle * index) < 150) ||
@@ -83,10 +83,9 @@ export class StellarScale {
 
       let distanceCorrectionY = 0
       if ((this.sectorAngle * index) < 70 || (this.sectorAngle * index) > 290) {
-        distanceCorrectionY = StellarScale.scaleDistance * (Math.max(lines.length - 1, 1))
+        distanceCorrectionY = 10 + height
       }
 
-      console.log(distanceCorrectionY)
       text.translation.x = edgeLengthX(this.sectorAngle * index, distanceFromCenter + distanceCorrectionX) - edgeLengthX((this.sectorAngle * index), 0)
       text.translation.y = edgeLengthY(this.sectorAngle * index, distanceFromCenter + distanceCorrectionY) - edgeLengthY((this.sectorAngle * index), 0)
 
