@@ -51,6 +51,7 @@ export class StellarChart extends HTMLElement {
     }
 
     await this.draw(this.data)
+
     this.resize()
     this.resizeListener = () => this.resize()
 
@@ -130,7 +131,7 @@ export class StellarChart extends HTMLElement {
 
 customElements.define('stellar-chart', StellarChart)
 
-function normaliseDatapointFormat (datapoints) {
+function normaliseDatapointFormat (datapoints = {}) {
   const result = []
 
   for (const [label, value] of Object.entries(datapoints)) {
