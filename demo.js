@@ -9,7 +9,7 @@ export const generateData = max => ({
   max,
   points: points.fill().reduce((res, _curr, index) => {
     // const randomLabelFilling = [...Array(Math.ceil(Math.random() * 3))].map((value) => (Math.random() * 1000000).toString(36).replace('.', '')).join('')
-    res[`label ${index}`] = parseFloat(randomVal(1, 0, max))
+    res[`very long text to show how it looks, when the text becomes very long ${index}`] = parseFloat(randomVal(1, 0, max))
     return res
   }, {})
 })

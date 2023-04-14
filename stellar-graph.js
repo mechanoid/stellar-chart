@@ -1,7 +1,7 @@
 /* global Two */
 
 import { edgeLengthX, edgeLengthY } from './geometric-helpers.js'
-// import { extractValues } from './index.js'
+import { rendered } from './index.js'
 
 // The actual graph we want to draw to out scale
 export class StellarGraph {
@@ -50,7 +50,14 @@ export class StellarGraph {
   }
 
   toggleInfo (f) {
-    console.log(f.datapoint)
+    const element = f.renderer.elem
+    if (element.classList.contains('active')) { // deactivate
+      element.classList.remove('active')
+      element.setAttribute('fill', '#F77B7D')
+    } else { // activate
+      element.classList.add('active')
+      element.setAttribute('fill', '#f00')
+    }
   }
 
   async update (datapoints = {}) {
@@ -128,23 +135,4 @@ export class StellarGraph {
     })
     this.flareGroup?.remove()
   }
-}
-
-// the twojs svg renderer renders asynchronously, but offers no async api.
-// `.elem` becomes available once rendered, so we wait for that to happen.
-async function rendered (renderer, interval = 10, timeout = 1000) {
-  let time = 0
-  return new Promise((resolve, reject) => {
-    const check = (renderer) => {
-      if (renderer.elem) {
-        resolve(renderer.elem)
-      }
-
-      time += interval
-      if (time > timeout) { reject(new Error('Element not rendered in time.')) }
-
-      setTimeout(() => check(renderer), interval)
-    }
-    setTimeout(() => check(renderer), interval)
-  })
 }

@@ -1,4 +1,5 @@
-import { edgeLengthX, edgeLengthY, toRadians } from './geometric-helpers.js'
+import { edgeLengthX, edgeLengthY } from './geometric-helpers.js'
+import { rendered } from './index.js'
 
 export class StellarScale {
   static scaleCount = 10 // number of scale lines we want to show
@@ -27,10 +28,10 @@ export class StellarScale {
     this.sectorAngle = 360 / this.labels.length
   }
 
-  draw () {
+  async draw () {
     this.drawAxes()
     this.drawEdges()
-    this.drawLabels()
+    await this.drawLabels()
   }
 
   // Axes are the lines drawn from center to the outer limits of our scale.
@@ -48,37 +49,48 @@ export class StellarScale {
     this.axesGroup.linewidth = 2
     this.axesGroup.stroke = '#ECECEC'
 
-    this.axes.forEach(d => {
+    for (const d of this.axes) {
       d.dashes = [4, 5]
-    })
+    }
   }
 
   // the labels are the actual text nodes arranged and displayed beside the axes.
-  drawLabels () {
-    this.labels = this.labels.map((rawLabel, index) => {
-      const label = truncate(rawLabel)
+  async drawLabels () {
+    this.labels = await Promise.all(this.labels.map(async (label, index) => {
+      const lines = splitByWidth(label)
+      const distanceFromCenter = StellarScale.scaleDistance * (10 + (this.sectorAngle * index < 45 || this.sectorAngle * index > 315 ? 1 * (lines.length - 1) : 0))
+
       const text = this.two.makeText(
-        label,
+        '',
         0,
         0
       ) // compute text first to get the length, then adjust x, y for the right distance from center
-      const { width } = text.getBoundingClientRect()
-      const distanceFromCenter = StellarScale.scaleDistance * 1
 
-      text.translation.x = edgeLengthX(this.sectorAngle * index, distanceFromCenter + (width / 2)) - edgeLengthX((this.sectorAngle * index) + 90, 15)
-      text.translation.y = edgeLengthY(this.sectorAngle * index, distanceFromCenter + (width / 2)) - edgeLengthY((this.sectorAngle * index) + 90, 15)
+      await rendered(text.renderer)
+      const element = text.renderer.elem
+      for (const line of lines) {
+        const tspan = createLine(line)
+        await element.appendChild(tspan)
+      }
 
-      const rotationAngle = this.sectorAngle * index
+      const { width } = element.getBoundingClientRect()
+      let distanceCorrectionX = 0
+      if (
+        ((this.sectorAngle * index) > 30 && (this.sectorAngle * index) < 150) ||
+        ((this.sectorAngle * index) > 210 && (this.sectorAngle * index) < 330)) {
+        distanceCorrectionX = width / 2
+      }
 
-      text.rotation = toRadians(rotationAngle) - Math.PI / 2 * (rotationAngle > 180 ? -1 : 1)
+      console.log(distanceCorrectionX)
+      text.translation.x = edgeLengthX(this.sectorAngle * index, distanceFromCenter + distanceCorrectionX) - edgeLengthX((this.sectorAngle * index), 0)
+      text.translation.y = edgeLengthY(this.sectorAngle * index, distanceFromCenter) - edgeLengthY((this.sectorAngle * index), 0)
+
+      // label styling
+      text.size = 12
       return text
-    })
+    }))
 
     this.labelsGroup = this.two.makeGroup(...this.labels)
-
-    this.labels.forEach(l => {
-      l.size = 12
-    })
   }
 
   // The edges are the connections between the axes, and are arranged as "rings" (actually polygons)
@@ -125,9 +137,46 @@ export class StellarScale {
   }
 }
 
-function truncate (string, length = 50) {
-  if (string.length > length) {
-    return string.substring(0, length) + '...'
+function splitByWidth (text, charCountPerLine = 30) {
+  const lines = []
+  const words = text.split(' ')
+  let currentLine = ''
+
+  for (const word of words) { // TODO: use Intl.Segmenter
+    if (currentLine.length + word.length <= charCountPerLine) {
+      currentLine += `${word} `
+    } else if (currentLine.length + word.length > charCountPerLine) {
+      lines.push(currentLine.trim())
+      currentLine = `${word} `
+    }
   }
-  return string
+  if (currentLine.length > 0) {
+    lines.push(currentLine.trim())
+  }
+
+  return lines
+}
+
+function createLine (line) {
+  const svgns = 'http://www.w3.org/2000/svg'
+  const lineElement = document.createElementNS(svgns, 'tspan')
+  lineElement.setAttributeNS(null, 'dy', '1.2em')
+  lineElement.setAttributeNS(null, 'x', '0')
+  lineElement.setAttributeNS(svgns, 'height', '15px')
+  lineElement.setAttributeNS(svgns, 'width', '100px')
+  lineElement.setAttributeNS(svgns, 'font-family', 'serif')
+  lineElement.setAttributeNS(svgns, 'line-height', '17')
+  lineElement.setAttributeNS(svgns, 'text-anchor', 'middle')
+  lineElement.setAttributeNS(svgns, 'dominant-baseline', 'middle')
+  lineElement.setAttributeNS(svgns, 'alignment-baseline', 'middle')
+  lineElement.setAttributeNS(svgns, 'font-style', 'normal')
+  lineElement.setAttributeNS(svgns, 'font-weight', '500')
+  lineElement.setAttributeNS(svgns, 'fill', '#000')
+  lineElement.setAttributeNS(svgns, 'stroke', 'transparent')
+  lineElement.setAttributeNS(svgns, 'stroke-width', '1')
+  lineElement.setAttributeNS(svgns, 'opacity', '1')
+  lineElement.setAttributeNS(svgns, 'visibility', 'visible')
+  const textNode = document.createTextNode(line)
+  lineElement.appendChild(textNode)
+  return lineElement
 }

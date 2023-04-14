@@ -65,19 +65,19 @@ export class StellarChart extends HTMLElement {
     this.datapoints = normaliseDatapointFormat(data.points)
 
     if (!this.scale) {
-      this.scale = this.drawScale(data)
+      this.scale = await this.drawScale(data)
     }
     if (!this.graph) {
       this.graph = await this.drawGraph(data)
     }
   }
 
-  drawScale ({ max }) {
+  async drawScale ({ max }) {
     if (!this.datapoints) { return }
 
     const labels = this.datapoints.map(point => point.label)
     const scale = new StellarScale(this.two, labels, { max })
-    scale.draw()
+    await scale.draw()
     return scale
   }
 
@@ -137,9 +137,28 @@ function normaliseDatapointFormat (datapoints) {
     if (typeof value === 'number') {
       result.push({ label, value })
     } else if (typeof value === 'object') {
-      result.push({ label, value: value.value })
+      result.push({ label: value.text, value: value.value })
     }
   }
 
   return result
+}
+
+// the twojs svg renderer renders asynchronously, but offers no async api.
+// `.elem` becomes available once rendered, so we wait for that to happen.
+export async function rendered (renderer, interval = 10, timeout = 1000) {
+  let time = 0
+  return new Promise((resolve, reject) => {
+    const check = (renderer) => {
+      if (renderer.elem) {
+        resolve(renderer.elem)
+      }
+
+      time += interval
+      if (time > timeout) { reject(new Error('Element not rendered in time.')) }
+
+      setTimeout(() => check(renderer), interval)
+    }
+    setTimeout(() => check(renderer), interval)
+  })
 }
