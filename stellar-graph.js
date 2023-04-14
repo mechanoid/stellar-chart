@@ -1,7 +1,6 @@
 /* global Two */
 
 import { edgeLengthX, edgeLengthY } from './geometric-helpers.js'
-import { rendered } from './index.js'
 
 // The actual graph we want to draw to out scale
 export class StellarGraph {
@@ -37,27 +36,6 @@ export class StellarGraph {
     }
 
     this.two.bind('update', this.updateHandler).play()
-
-    await Promise.all(this.flares.map(async (f, index) => {
-      await rendered(f.renderer)
-      f.toggleListener = () => this.toggleInfo(f)
-      f.datapoint = this.datapoints[index]
-
-      f.renderer.elem.addEventListener('mouseover', f.toggleListener)
-      f.renderer.elem.addEventListener('mouseout', f.toggleListener)
-      f.renderer.elem.addEventListener('click', f.toggleListener)
-    }))
-  }
-
-  toggleInfo (f) {
-    const element = f.renderer.elem
-    if (element.classList.contains('active')) { // deactivate
-      element.classList.remove('active')
-      element.setAttribute('fill', '#F77B7D')
-    } else { // activate
-      element.classList.add('active')
-      element.setAttribute('fill', '#f00')
-    }
   }
 
   async update (datapoints = {}) {
@@ -125,14 +103,7 @@ export class StellarGraph {
 
   remove () {
     this.two.unbind('update', this.updateHandler)
-    this.flares.forEach(f => {
-      if (f.toggleListener) {
-        f.renderer.elem.removeEventListener('mouseover', f.toggleListener)
-        f.renderer.elem.removeEventListener('mouseout', f.toggleListener)
-        f.renderer.elem.removeEventListener('click', f.toggleListener)
-      }
-      f.remove()
-    })
+    this.flares.forEach(f => f.remove())
     this.flareGroup?.remove()
   }
 }
