@@ -133,6 +133,9 @@ customElements.define('stellar-chart', StellarChart)
 
 function normaliseDatapointFormat (datapoints = {}) {
   const result = []
+  if (Array.isArray(datapoints)) {
+    return datapoints
+  }
 
   for (const [label, value] of Object.entries(datapoints)) {
     if (typeof value === 'number') {
