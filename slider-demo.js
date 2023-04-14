@@ -57,7 +57,7 @@ class SliderDemoController extends HTMLElement {
   async update () {
     this.headline.textContent = this.currentDataSource.name
     const data = await this.retrieve(this.currentDataSource)
-    this.stellarChart.update(data)
+    await this.stellarChart.update(data)
   }
 
   async retrieve (datasource) {
