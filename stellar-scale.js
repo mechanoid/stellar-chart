@@ -58,7 +58,7 @@ export class StellarScale {
   async drawLabels () {
     this.labels = await Promise.all(this.labels.map(async (label, index) => {
       const lines = splitByWidth(label)
-      const distanceFromCenter = StellarScale.scaleDistance * (10 + (this.sectorAngle * index < 45 || this.sectorAngle * index > 315 ? 1 * (lines.length - 1) : 0))
+      const distanceFromCenter = StellarScale.scaleDistance * 10
 
       const text = this.two.makeText(
         '',
@@ -81,9 +81,14 @@ export class StellarScale {
         distanceCorrectionX = width / 2
       }
 
-      console.log(distanceCorrectionX)
+      let distanceCorrectionY = 0
+      if ((this.sectorAngle * index) < 70 || (this.sectorAngle * index) > 290) {
+        distanceCorrectionY = StellarScale.scaleDistance * (Math.max(lines.length - 1, 1))
+      }
+
+      console.log(distanceCorrectionY)
       text.translation.x = edgeLengthX(this.sectorAngle * index, distanceFromCenter + distanceCorrectionX) - edgeLengthX((this.sectorAngle * index), 0)
-      text.translation.y = edgeLengthY(this.sectorAngle * index, distanceFromCenter) - edgeLengthY((this.sectorAngle * index), 0)
+      text.translation.y = edgeLengthY(this.sectorAngle * index, distanceFromCenter + distanceCorrectionY) - edgeLengthY((this.sectorAngle * index), 0)
 
       // label styling
       text.size = 12
