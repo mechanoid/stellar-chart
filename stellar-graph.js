@@ -13,9 +13,9 @@ export class StellarGraph {
     this.updates = 0
   }
 
-  async draw (datapoints = {}) {
-    if (Object.keys(datapoints).length <= 0) { return }
+  async draw (datapoints = []) {
     this.datapoints = datapoints
+    if (datapoints.length <= 0) { return }
     this.sectorAngle = 360 / datapoints.length
 
     this.flares = this.datapoints
@@ -38,8 +38,8 @@ export class StellarGraph {
     this.two.bind('update', this.updateHandler).play()
   }
 
-  async update (datapoints = {}) {
-    if (Object.keys(this.datapoints).length <= 0) {
+  async update (datapoints = []) {
+    if (this.datapoints?.length <= 0) {
       return await this.draw(datapoints)
     }
 
