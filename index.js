@@ -32,9 +32,13 @@ import { StellarGraph } from './stellar-graph.js'
 // }
 
 export class StellarChart extends HTMLElement {
+  #datapoints = []
+
   constructor () {
     super()
+
     this.two = new Two({ fitted: true, autostart: true })
+
     this.scale = undefined
     this.graph = undefined
     this.data = undefined
@@ -63,7 +67,7 @@ export class StellarChart extends HTMLElement {
   }
 
   async draw (data) {
-    this.datapoints = normaliseDatapointFormat(data.points)
+    this.datapoints = data.points
 
     if (!this.scale) {
       this.scale = await this.drawScale(data)
@@ -96,11 +100,11 @@ export class StellarChart extends HTMLElement {
       throw new Error('updating the graph with invalid data:', 'points property is missing!')
     }
 
-    const newPoints = normaliseDatapointFormat(data.points)
     const currentPoints = this.datapoints
+    this.datapoints = data.points
 
     // redraw the graph if the number of points has changed
-    if (!currentPoints || newPoints.length !== currentPoints.length) {
+    if (!currentPoints || this.datapoints.length !== currentPoints.length) {
       this.data = data
       this.scale?.remove()
       this.graph?.remove()
@@ -111,7 +115,7 @@ export class StellarChart extends HTMLElement {
     }
 
     this.scale.update({ max: data.max })
-    await this.graph.update(newPoints)
+    await this.graph.update(this.datapoints)
   }
 
   get centerX () {
@@ -126,6 +130,24 @@ export class StellarChart extends HTMLElement {
     this.two.fit('fittet')
 
     this.two.scene.position.set(this.centerX, this.centerY)
+  }
+
+  get datapoints () {
+    return this.#datapoints
+  }
+
+  set datapoints (datapoints) {
+    this.#datapoints = normaliseDatapointFormat(datapoints)
+
+    if (this.#datapoints.length <= 0) {
+      this.classList.remove('not-empty')
+      this.classList.add('empty')
+    } else {
+      this.classList.remove('empty')
+      this.classList.add('not-empty')
+    }
+
+    return this.#datapoints
   }
 }
 
